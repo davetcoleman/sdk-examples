@@ -98,7 +98,8 @@ class JointTrajectoryActionServer(object):
             self._pid[jnt].set_kp(self._param.config[jnt + '_kp'])
             self._pid[jnt].set_ki(self._param.config[jnt + '_ki'])
             self._pid[jnt].set_kd(self._param.config[jnt + '_kd'])
-            self._goal_error[jnt] = self._param.config[jnt + '_goal']
+            #self._goal_error[jnt] = self._param.config[jnt + '_goal']
+            self._goal_error[jnt] = 0.2 # customization
             self._error_threshold[jnt] = self._param.config[jnt + '_trajectory']
             self._dflt_vel[jnt] = self._param.config[jnt + '_default_velocity']
             self._pid[jnt].initialize()
@@ -227,6 +228,7 @@ class JointTrajectoryActionServer(object):
         last_time = trajectory_points[-1].time_from_start.to_sec()
         def check_goal_state():
             for error in self._get_current_error(joint_names, last_point):
+                print "Joint ", error[0], " has error ", math.fabs(error[1]), " with tolerance ", self._goal_error[error[0]]
                 if (self._goal_error[error[0]] > 0
                     and self._goal_error[error[0]] < math.fabs(error[1])):
                     return error[0]
@@ -248,4 +250,5 @@ class JointTrajectoryActionServer(object):
             self._server.set_aborted()
         else:
             self._command_stop(goal.trajectory.joint_names)
+            print "Succeeded!"
             self._server.set_succeeded()
