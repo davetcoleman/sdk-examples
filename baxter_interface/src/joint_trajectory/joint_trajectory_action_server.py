@@ -99,9 +99,10 @@ class JointTrajectoryActionServer(object):
             self._pid[jnt].set_ki(self._param.config[jnt + '_ki'])
             self._pid[jnt].set_kd(self._param.config[jnt + '_kd'])
             #self._goal_error[jnt] = self._param.config[jnt + '_goal']
-            self._goal_error[jnt] = 0.2 # customization
+            self._goal_error[jnt] = 0.3 # customization
             self._error_threshold[jnt] = self._param.config[jnt + '_trajectory']
-            self._dflt_vel[jnt] = self._param.config[jnt + '_default_velocity']
+            #self._dflt_vel[jnt] = self._param.config[jnt + '_default_velocity']
+            self._dflt_vel[jnt] = 0.05 # customization self._param.config[jnt + '_default_velocity']
             self._pid[jnt].initialize()
         return True
 
