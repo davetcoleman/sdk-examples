@@ -199,7 +199,8 @@ class Trajectory(object):
         #total time trajectory expected for trajectory execution plus a buffer
         last_time = self._r_goal.trajectory.points[-1].time_from_start.to_sec()
         time_buffer = rospy.get_param(self._param_ns + 'goal_time', 0.0) + 1.5
-        timeout = rospy.Duration(last_time + time_buffer)
+        # DTC timeout = rospy.Duration(last_time + time_buffer)
+        timeout = rospy.Duration(100000)
 
         l_finish = self._left_client.wait_for_result(timeout)
         r_finish = self._right_client.wait_for_result(timeout)

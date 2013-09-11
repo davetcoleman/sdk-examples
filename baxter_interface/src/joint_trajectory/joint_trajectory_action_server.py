@@ -39,6 +39,7 @@ import actionlib
 
 from std_msgs.msg import (
     UInt16,
+    Float32
 )
 from control_msgs.msg import (
     FollowJointTrajectoryAction,
@@ -55,6 +56,7 @@ import baxter_interface
 
 class JointTrajectoryActionServer(object):
     def __init__(self, limb, parameters, rate=100.0):
+        print "Dave's custom version"
         self._param = parameters
         self._ns = '/sdk/robot/limb/' + limb + '/follow_joint_trajectory'
         self._server = actionlib.SimpleActionServer(
@@ -85,6 +87,14 @@ class JointTrajectoryActionServer(object):
             '/robot/joint_state_publish_rate', UInt16)
         self._pub_rate.publish(self._control_rate)
 
+        # DTC create publishers for desired and actual position
+        self._pub_desired = rospy.Publisher(
+            '/baxter/trajectory_controller/desired', Float32)
+        self._pub_actual = rospy.Publisher(
+            '/baxter/trajectory_controller/actual', Float32)
+        self._pub_error = rospy.Publisher(
+            '/baxter/trajectory_controller/error', Float32)
+
     def _get_trajectory_parameters(self, joint_names):
         for jnt in joint_names:
             if not jnt in self._limb.joint_names():
@@ -99,10 +109,11 @@ class JointTrajectoryActionServer(object):
             self._pid[jnt].set_ki(self._param.config[jnt + '_ki'])
             self._pid[jnt].set_kd(self._param.config[jnt + '_kd'])
             #self._goal_error[jnt] = self._param.config[jnt + '_goal']
-            self._goal_error[jnt] = 0.3 # customization
-            self._error_threshold[jnt] = self._param.config[jnt + '_trajectory']
+            self._goal_error[jnt] = 2 # DTC customization 
+            #self._error_threshold[jnt] = self._param.config[jnt + '_trajectory']
+            self._error_threshold[jnt] = 2 # DTC
             #self._dflt_vel[jnt] = self._param.config[jnt + '_default_velocity']
-            self._dflt_vel[jnt] = 0.05 # customization self._param.config[jnt + '_default_velocity']
+            self._dflt_vel[jnt] = 0.1 # DTC customization 
             self._pid[jnt].initialize()
         return True
 
@@ -112,6 +123,12 @@ class JointTrajectoryActionServer(object):
     def _get_current_error(self, joint_names, set_point):
         current = self._get_current_position(joint_names)
         error = map(operator.sub, set_point, current)
+
+        # Publish the desired vs actual positions of a joint
+        self._pub_desired.publish(set_point[0])
+        self._pub_actual.publish(current[0])
+        self._pub_error.publish(error[0])
+
         return zip(joint_names, error)
 
     def _command_stop(self, joint_names):
@@ -127,6 +144,7 @@ class JointTrajectoryActionServer(object):
             self._server.set_preempted()
             return False
         deltas = self._get_current_error(joint_names, positions)
+        
         for delta in deltas:
             if (delta[1] >= self._error_threshold[delta[0]]
                 and self._error_threshold[delta[0]] >= 0.0):
@@ -159,7 +177,8 @@ class JointTrajectoryActionServer(object):
 
         # If all time_from_start are zero,
         # interject these based on default velocities
-        if all(pt.time_from_start.to_sec() == 0.0 for pt in trajectory_points):
+        #if all(pt.time_from_start.to_sec() == 0.0 for pt in trajectory_points):
+        if True:
             last_point = self._get_current_position(joint_names)
             move_time = 0.0
             for point in trajectory_points:
