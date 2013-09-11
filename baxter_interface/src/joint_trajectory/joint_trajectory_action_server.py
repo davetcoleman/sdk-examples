@@ -88,12 +88,16 @@ class JointTrajectoryActionServer(object):
         self._pub_rate.publish(self._control_rate)
 
         # DTC create publishers for desired and actual position
-        self._pub_desired = rospy.Publisher(
-            '/baxter/trajectory_controller/desired', Float32)
-        self._pub_actual = rospy.Publisher(
-            '/baxter/trajectory_controller/actual', Float32)
-        self._pub_error = rospy.Publisher(
-            '/baxter/trajectory_controller/error', Float32)
+        self._desired_pub = {}
+        self._actual_pub = {}
+        counter = 0
+        #for joint in self._limb.joint_names():
+        #    self._desired_pub[counter] = rospy.Publisher(
+        #        '/baxter/limb/' + limb + '/' + joint + '/trajectory/desired', Float32)
+        #    self._actual_pub[counter]  = rospy.Publisher(
+        #        '/baxter/limb/' + limb + '/' + joint + '/trajectory/actual', Float32)
+        #    counter = counter + 1
+        print "done"
 
     def _get_trajectory_parameters(self, joint_names):
         for jnt in joint_names:
@@ -125,9 +129,11 @@ class JointTrajectoryActionServer(object):
         error = map(operator.sub, set_point, current)
 
         # Publish the desired vs actual positions of a joint
-        self._pub_desired.publish(set_point[0])
-        self._pub_actual.publish(current[0])
-        self._pub_error.publish(error[0])
+        #for pub in self._desired_pub:
+        #    self._desired_pub[pub].publish(set_point[pub])
+
+        #for pub in self._actual_pub:
+        #    self._actual_pub[pub].publish(set_point[pub])
 
         return zip(joint_names, error)
 
