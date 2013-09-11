@@ -97,7 +97,7 @@ class JointTrajectoryActionServer(object):
         #    self._actual_pub[counter]  = rospy.Publisher(
         #        '/baxter/limb/' + limb + '/' + joint + '/trajectory/actual', Float32)
         #    counter = counter + 1
-        print "done"
+        #print "publishers started"
 
     def _get_trajectory_parameters(self, joint_names):
         for jnt in joint_names:
@@ -117,7 +117,7 @@ class JointTrajectoryActionServer(object):
             #self._error_threshold[jnt] = self._param.config[jnt + '_trajectory']
             self._error_threshold[jnt] = 2 # DTC
             #self._dflt_vel[jnt] = self._param.config[jnt + '_default_velocity']
-            self._dflt_vel[jnt] = 0.1 # DTC customization 
+            self._dflt_vel[jnt] = 1 # DTC customization 
             self._pid[jnt].initialize()
         return True
 
@@ -183,8 +183,8 @@ class JointTrajectoryActionServer(object):
 
         # If all time_from_start are zero,
         # interject these based on default velocities
-        #if all(pt.time_from_start.to_sec() == 0.0 for pt in trajectory_points):
-        if True:
+        if all(pt.time_from_start.to_sec() == 0.0 for pt in trajectory_points):
+        #if True: # DTC manually set velocities
             last_point = self._get_current_position(joint_names)
             move_time = 0.0
             for point in trajectory_points:
