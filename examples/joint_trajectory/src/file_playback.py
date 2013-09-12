@@ -67,9 +67,9 @@ class Trajectory(object):
         )
 
         #verify joint trajectory action servers are available
-        l_server_up = self._left_client.wait_for_server(rospy.Duration(1.0))
+        # DTC l_server_up = self._left_client.wait_for_server(rospy.Duration(1.0))
         r_server_up = self._right_client.wait_for_server(rospy.Duration(1.0))
-        if not l_server_up or not r_server_up:
+        if not r_server_up: #not l_server_up or not r_server_up:
             msg = "Action server not available. Verify controller availability."
             rospy.logerr(msg)
             sys.exit(0)
@@ -175,7 +175,7 @@ class Trajectory(object):
     def start(self):
         """ Sends FollowJointTrajectoryAction request
         """
-        self._left_client.send_goal(self._l_goal)
+        #DTCself._left_client.send_goal(self._l_goal)
         self._right_client.send_goal(self._r_goal)
 
     def stop(self):
@@ -202,11 +202,11 @@ class Trajectory(object):
         # DTC timeout = rospy.Duration(last_time + time_buffer)
         timeout = rospy.Duration(100000)
 
-        l_finish = self._left_client.wait_for_result(timeout)
+        # DTC l_finish = self._left_client.wait_for_result(timeout)
         r_finish = self._right_client.wait_for_result(timeout)
 
         #verify result
-        if l_finish and r_finish:
+        if r_finish: # DTC l_finish and r_finish:
             return True
         else:
             msg = "Trajectory action did not finish before timeout/interrupt."
@@ -239,11 +239,13 @@ def main(file, loops):
         loop_cnt = loop_cnt + 1
 
 if __name__ == "__main__":
+    argv = rospy.myargv() # strip out ROS arguments
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--file', dest='file', required=True,
         help="input file")
     parser.add_argument('-l', '--loops', dest='loops', type=int, default=1,
         help="number of playback loops. 0=infinite.")
-    args = parser.parse_args()
+    args = parser.parse_args(argv[1:])
 
     main(args.file, args.loops)

@@ -77,6 +77,9 @@ class JointTrajectoryActionServer(object):
         self._error_threshold = {}
         self._dflt_vel = {}
 
+        # For publishing debug info about controller
+        self._throttle_pub_count = 0
+
         # Create our PID controllers
         self._pid = {}
         for joint in self._limb.joint_names():
@@ -88,18 +91,29 @@ class JointTrajectoryActionServer(object):
         self._pub_rate.publish(self._control_rate)
 
         # DTC create publishers for desired and actual position
+        self._error_pub = {}
         self._desired_pub = {}
         self._actual_pub = {}
         counter = 0
-        #for joint in self._limb.joint_names():
+        for joint in self._limb.joint_names():
+            self._error_pub[counter] = rospy.Publisher(
+                '/robot/limb/' + limb + '/' + joint + '/trajectory/error', Float32)
         #    self._desired_pub[counter] = rospy.Publisher(
-        #        '/baxter/limb/' + limb + '/' + joint + '/trajectory/desired', Float32)
+        #        '/robot/limb/' + limb + '/' + joint + '/trajectory/desired', Float32)
         #    self._actual_pub[counter]  = rospy.Publisher(
-        #        '/baxter/limb/' + limb + '/' + joint + '/trajectory/actual', Float32)
-        #    counter = counter + 1
-        #print "publishers started"
+        #        '/robot/limb/' + limb + '/' + joint + '/trajectory/actual', Float32)
+            counter = counter + 1
+        print "Feedback publishers started"
 
     def _get_trajectory_parameters(self, joint_names):
+
+        # Ziegler Nichols Method
+        tu = 368.749 - 367.453
+        ku = 4.7
+        kp = ku * 0.6
+        ki = 2*kp /tu
+        kd = kp*tu/8            
+
         for jnt in joint_names:
             if not jnt in self._limb.joint_names():
                 rospy.logerr(
@@ -109,11 +123,11 @@ class JointTrajectoryActionServer(object):
                 self._server.set_aborted()
                 return False
 
-            self._pid[jnt].set_kp(self._param.config[jnt + '_kp'])
-            self._pid[jnt].set_ki(self._param.config[jnt + '_ki'])
-            self._pid[jnt].set_kd(self._param.config[jnt + '_kd'])
+            self._pid[jnt].set_kp(kp) # DTC self._param.config[jnt + '_kp'])
+            self._pid[jnt].set_ki(ki) #DTC self._param.config[jnt + '_ki'])
+            self._pid[jnt].set_kd(kd) #DTC self._param.config[jnt + '_kd'])
             #self._goal_error[jnt] = self._param.config[jnt + '_goal']
-            self._goal_error[jnt] = 2 # DTC customization 
+            self._goal_error[jnt] = 0.2    # DTC customization 
             #self._error_threshold[jnt] = self._param.config[jnt + '_trajectory']
             self._error_threshold[jnt] = 2 # DTC
             #self._dflt_vel[jnt] = self._param.config[jnt + '_default_velocity']
@@ -129,9 +143,12 @@ class JointTrajectoryActionServer(object):
         error = map(operator.sub, set_point, current)
 
         # Publish the desired vs actual positions of a joint
+        self._throttle_pub_count += 1
+        if self._throttle_pub_count % 10 == 0:  #throttle the frequency of publishing
+            for pub in self._error_pub:
+                self._error_pub[pub].publish(error[pub])
         #for pub in self._desired_pub:
         #    self._desired_pub[pub].publish(set_point[pub])
-
         #for pub in self._actual_pub:
         #    self._actual_pub[pub].publish(set_point[pub])
 
@@ -168,6 +185,7 @@ class JointTrajectoryActionServer(object):
     def _on_trajectory_action(self, goal):
         joint_names = goal.trajectory.joint_names
         trajectory_points = goal.trajectory.points
+
         # Load parameters for trajectory
         if not self._get_trajectory_parameters(joint_names):
             self._server.set_aborted()
@@ -175,6 +193,8 @@ class JointTrajectoryActionServer(object):
 
         # Create a new discretized joint trajectory
         num_points = len(trajectory_points)
+
+        print "Recieved new trajectory with", num_points, "points"
 
         if num_points == 0:
             rospy.logerr("%s: Empty Trajectory" % (self._action_name,))
@@ -253,16 +273,16 @@ class JointTrajectoryActionServer(object):
         last_point = trajectory_points[-1].positions
         last_time = trajectory_points[-1].time_from_start.to_sec()
         def check_goal_state():
-            for error in self._get_current_error(joint_names, last_point):
-                print "Joint ", error[0], " has error ", math.fabs(error[1]), " with tolerance ", self._goal_error[error[0]]
-                if (self._goal_error[error[0]] > 0
-                    and self._goal_error[error[0]] < math.fabs(error[1])):
+            for error in self._get_current_error(joint_names, last_point):                
+                if (self._goal_error[error[0]] > 0 and self._goal_error[error[0]] < math.fabs(error[1])):                    
+                    print "Joint", error[0], "has error ", math.fabs(error[1]), " with goal error tolerance ", self._goal_error[error[0]]
                     return error[0]
             else:
                 return None
 
         while ((rospy.get_time() < start_time + last_time + self._goal_time)
                and check_goal_state()):
+            print "waiting to reach goal time"
             if not self._command_velocities(joint_names, last_point):
                 return
             control_rate.sleep()
